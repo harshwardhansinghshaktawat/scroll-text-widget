@@ -3,6 +3,9 @@ class ScrollText extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this.elements = [];
+    this.headlineOffset = 0;
+    this.topDistance = 0;
+    this.movement = 0;
   }
 
   static get observedAttributes() {
@@ -21,6 +24,7 @@ class ScrollText extends HTMLElement {
 
   connectedCallback() {
     this.render();
+    // Use the original scroll listener logic
     this.handleScroll = () => this.animateScroll();
     window.addEventListener('scroll', this.handleScroll);
   }
@@ -29,8 +33,17 @@ class ScrollText extends HTMLElement {
     window.removeEventListener('scroll', this.handleScroll);
   }
 
+  getRandomArbitrary(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+
   move(element, distance) {
-    element.style.transform = `translateY(${distance}px)`;
+    const translate3d = `translate3d(0, ${distance}px, 0)`;
+    element.style['-webkit-transform'] = translate3d;
+    element.style['-moz-transform'] = translate3d;
+    element.style['-ms-transform'] = translate3d;
+    element.style['-o-transform'] = translate3d;
+    element.style.transform = translate3d;
   }
 
   fadeOut(element, scrollDistance, tweenDistance) {
@@ -38,13 +51,14 @@ class ScrollText extends HTMLElement {
   }
 
   animateScroll() {
-    const topDistance = window.pageYOffset;
-    const tweenDistance = parseFloat(this.getAttribute('tween-distance')) || 300;
+    const tweenDistance = parseFloat(this.getAttribute('tween-distance')) || this.tweenDistance;
+    this.topDistance = window.scrollY; // Original uses pageYOffset, scrollY is equivalent
+    this.movement = this.topDistance * 2;
 
     this.elements.forEach((element) => {
-      const movement = -(topDistance * parseFloat(element.dataset.speed));
-      this.move(element, movement);
-      this.fadeOut(element, topDistance, tweenDistance);
+      this.movement = -(this.topDistance * element.dataset.speed);
+      this.move(element, this.movement);
+      this.fadeOut(element, this.topDistance, tweenDistance);
     });
   }
 
@@ -56,7 +70,7 @@ class ScrollText extends HTMLElement {
     const backgroundStart = this.getAttribute('background-start') || '#1A237E';
     const backgroundEnd = this.getAttribute('background-end') || '#7986CB';
     const headingTag = this.getAttribute('heading-tag') || 'h1';
-    const tweenDistance = parseFloat(this.getAttribute('tween-distance')) || 300;
+    this.tweenDistance = parseFloat(this.getAttribute('tween-distance')) || this.getRandomArbitrary(200, 400);
     const textAlignment = this.getAttribute('text-alignment') || 'center';
 
     // Clear previous elements
@@ -82,23 +96,23 @@ class ScrollText extends HTMLElement {
 
         .headline-container {
           position: relative;
-          text-align: ${text-alignment};
+          text-align: ${textAlignment};
           max-width: 80vw; /* For wrapping */
         }
 
         .headline {
           margin: 0;
-          opacity: 0; /* Starts hidden, fades in on scroll */
           font-weight: 700;
           color: ${fontColor};
           text-transform: uppercase;
           display: inline-block;
+          opacity: 1; /* Ensure text is visible initially */
         }
 
         .headline span {
           display: inline-block;
           box-sizing: border-box;
-          padding: 0 0.2vw; /* Adjusted for responsiveness */
+          padding: 0 0.2vw;
           font-size: ${fontSize}vw;
           font-family: ${fontFamily}, sans-serif;
           transition: opacity 0.2s ease, transform 0.2s ease;
@@ -110,6 +124,8 @@ class ScrollText extends HTMLElement {
     `;
 
     const headline = this.shadowRoot.querySelector('.headline');
+    this.headlineOffset = headline.offsetTop; // Store initial offset
+
     letters.forEach((letter) => {
       const element = document.createElement('span');
       element.innerText = letter;
